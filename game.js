@@ -453,7 +453,11 @@ function renderScene(now) {
   }
 
   const n = fx.wedges, a = Math.PI / n;
-  const r0c = (COLS / 2) / Math.tan(a) + 0.6;
+  // each prism's picture rocks about the centre; mirrored neighbours rock the opposite way,
+  // so the images fold into each other at the seams. r0 leaves room so the board is never clipped.
+  const rock = Math.min(0.14, a * 0.3);
+  const phi = rock * Math.sin(now / 1000 * (0.55 + 0.05 * G.level));
+  const r0c = (COLS / 2) / Math.tan(a - rock) + 0.6;
   const outerC = r0c + ROWS;
   const cellS = (fx.focus ? Math.max(L.halfW, L.halfH) : Math.min(L.halfW, L.halfH)) * 0.985 / outerC;
   const bw = COLS * cellS, bh = ROWS * cellS, r0 = r0c * cellS;
@@ -466,6 +470,8 @@ function renderScene(now) {
 
   for (let i = 0; i < n; i++) {
     c.save(); c.rotate(i * 2 * a); clipWedge(c, a);
+    if (i % 2) c.scale(-1, 1);                                   // mirror alternate prisms
+    c.rotate(phi);                                               // counter-rocking through the mirror
     for (let j = 0; j < rows; j++) {
       const rTop = r0 + (j + 1) * bh;
       const K = Math.ceil(Math.max(0, rTop * Math.tan(a) - bw / 2) / bw);
@@ -485,6 +491,7 @@ function renderScene(now) {
   for (let m = 0; m < 2 * n; m++) {
     c.save(); c.rotate(m * a + a / 2); clipWedge(c, a / 2);
     if (m % 2) c.scale(-1, 1);
+    c.rotate(phi);
     c.drawImage(board, -bw * si / 2, -r0, bw * si, r0);
     c.restore();
   }
@@ -512,10 +519,19 @@ function renderScene(now) {
     c.save();
     c.shadowColor = `hsla(${(h0 + 180) % 360},100%,80%,0.9)`; c.shadowBlur = cellS * 1.2;
     c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = Math.max(2, cellS * 0.18);
+    c.rotate(phi);
     c.strokeRect(-bw / 2, -(r0 + bh), bw, bh);
     c.restore();
   }
   c.restore();
+
+  // eyepiece: soft circular darkening beyond the mirrors, as if looking down the tube
+  {
+    const R = (r0 + bh) * fx.pulse;
+    const v = c.createRadialGradient(sx, sy, R * 0.92, sx, sy, R * 1.9);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.35, 'rgba(0,0,10,0.35)'); v.addColorStop(1, 'rgba(0,0,10,0.8)');
+    c.fillStyle = v; c.fillRect(0, 0, W, H);
+  }
 
   // focus board: an upright, non-rotating copy in the centre (phones, narrow windows, or B key)
   if (fx.focus) {
@@ -851,8 +867,8 @@ window.addEventListener('keydown', e => {
   if (k === 'f' || k === 'F') { fx.prism = !fx.prism; prismAuto = false; return; }
   if (k === 'h' || k === 'H') { fx.highlight = !fx.highlight; return; }
   if (k === 'b' || k === 'B') { fx.focus = !fx.focus; focusAuto = false; return; }
-  if (k === '[') { fx.wedges = Math.max(3, fx.wedges - 1); return; }
-  if (k === ']') { fx.wedges = Math.min(12, fx.wedges + 1); return; }
+  if (k === '[') { fx.wedges = Math.max(4, fx.wedges - 2); return; }
+  if (k === ']') { fx.wedges = Math.min(12, fx.wedges + 2); return; }
   if (!G.started || G.over || G.paused) return;
   switch (k) {
     case 'ArrowLeft': pressLeft(-1); break;

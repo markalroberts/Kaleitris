@@ -19,7 +19,7 @@ python3 -m http.server 8000
 | Down soft drop, Space hard drop | Drag down to soft drop, flick down to hard drop |
 | C hold, P pause, M mute | On-screen HOLD and pause buttons |
 
-Visual toggles: `[` and `]` change the number of prisms (3 to 12), `R` stops or starts the spin,
+Visual toggles: `[` and `]` change the number of prisms (4 to 12, even counts so neighbouring prisms mirror each other), `R` stops or starts the spin,
 `F` toggles the prism / bloom pass, `H` toggles the glowing marker on one of the mirrored boards,
 `B` toggles an upright non-rotating copy of the board in the centre.
 
