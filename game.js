@@ -257,6 +257,10 @@ float fbm(vec2 p){
   return v;
 }
 vec3 pal(float t){ return 0.5+0.5*cos(6.28318*(t+vec3(0.0,0.33,0.67))); }
+vec3 hsv(float h, float sat, float v){
+  vec3 k=abs(fract(h+vec3(0.0,0.6667,0.3333))*6.0-3.0)-1.0;
+  return v*mix(vec3(1.0), clamp(k,0.0,1.0), sat);
+}
 void main(){
   vec2 uv=(gl_FragCoord.xy-0.5*u_res)/min(u_res.x,u_res.y);
   float r=length(uv);
@@ -267,19 +271,24 @@ void main(){
   vec2 q=vec2(fbm(p+vec2(0.0,t)), fbm(p+vec2(5.2,1.3)-t*0.7));
   vec2 w=vec2(fbm(p+2.2*q+vec2(1.7,9.2)+0.15*t), fbm(p+2.2*q+vec2(8.3,2.8)-0.126*t));
   float f=fbm(p+(1.8+1.2*u_pulse)*w);
-  float blobA=smoothstep(0.0,0.14,f);                           // soft blob layers
-  float blobB=smoothstep(0.14,0.28,f);
-  vec3 bg=pal(u_hue+0.06*q.x+r*0.15)*0.5;
-  vec3 ca=pal(u_hue+0.33+0.45*w.y+0.3*q.x);
-  vec3 cb=pal(u_hue+0.66+0.45*w.x+0.3*q.y)*1.15;
-  vec3 col=mix(bg,ca,blobA); col=mix(col,cb,blobB);
-  float rim=1.0-smoothstep(0.0,0.045,abs(f-0.14));             // glowing blob edges
-  col+=0.35*rim*pal(u_hue+0.5+0.2*w.x);
+  float blobA=smoothstep(0.0,0.09,f);                           // sharper blob layers
+  float blobB=smoothstep(0.13,0.22,f);
+  float blobC=smoothstep(0.25,0.32,f);
+  vec3 bg=hsv(u_hue+0.55+0.35*q.x+r*0.1, 0.95, 0.42);           // deep saturated gaps
+  vec3 ca=hsv(u_hue+0.05+0.7*w.y+0.4*q.x, 1.0, 1.0);          // vivid blobs
+  vec3 cb=hsv(u_hue+0.38+0.7*w.x+0.4*q.y, 1.0, 1.05);
+  vec3 cc=hsv(u_hue+0.72+0.6*w.y+0.4*q.x, 1.0, 1.1);
+  vec3 col=mix(bg,ca,blobA); col=mix(col,cb,blobB); col=mix(col,cc,blobC);
+  float rim=1.0-smoothstep(0.0,0.03,abs(f-0.13));              // bright blob edges
+  col+=0.45*rim*hsv(u_hue+0.9+0.2*w.x, 0.6, 1.0);
   float film=sin((f*4.0+length(w)*3.0-t*1.5)*3.14159);         // faint oil sheen
-  col=mix(col, pal(f*2.0+u_hue+0.5), 0.12*film);
+  col=mix(col, pal(f*2.0+u_hue+0.5), 0.08*film);
   col+=0.25*u_pulse*pal(u_hue+r);
-  col*=1.0-0.5*smoothstep(0.35,1.1,r);                          // vignette
-  gl_FragColor=vec4(col,1.0);
+  col=(col-0.5)*1.35+0.5;                                       // contrast curve
+  float l=dot(col,vec3(0.3,0.59,0.11));
+  col=mix(vec3(l),col,1.25);                                    // saturation push
+  col*=1.0-0.35*smoothstep(0.45,1.15,r);                        // light vignette
+  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);
 }`;
   function compile(type, src) {
     const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
