@@ -17,6 +17,13 @@ const SHAPES = {
   L: [[0,0,1],[1,1,1],[0,0,0]],
 };
 const HUES = { I: 185, O: 52, T: 285, S: 125, Z: 350, J: 225, L: 28 };
+const PIECE_POS = { Z: 0, L: 1, O: 2, S: 3, I: 4, J: 5, T: 6 };          // spread across a prism's band
+const PIECE_LIGHT = { Z: 50, L: 62, O: 68, S: 56, I: 66, J: 48, T: 58 };
+const BAND = 110;                                                      // degrees of hue per prism
+function pieceColour(type, prism) {
+  const base = fx.hue + prism * (360 / fx.wedges);
+  return [(base + (PIECE_POS[type] / 6 - 0.5) * BAND + 360) % 360, PIECE_LIGHT[type]];
+}
 const KICKS = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0],[0,-2],[-1,-1],[1,-1]];
 const DAS = 150, ARR = 45, LOCK_DELAY = 500, CLEAR_TIME = 380;
 
@@ -225,9 +232,16 @@ const overlay = document.getElementById('overlay');
 const isTouch = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (isTouch) document.body.classList.add('touch');
 
-const board = document.createElement('canvas');
-board.width = COLS * CELL; board.height = ROWS * CELL;
-const bctx = board.getContext('2d');
+// one offscreen board per prism so each prism can wear its own colours
+const boards = [];
+function boardFor(i) {
+  while (boards.length <= i) {
+    const cv = document.createElement('canvas');
+    cv.width = COLS * CELL; cv.height = ROWS * CELL;
+    boards.push({ cv, ctx: cv.getContext('2d') });
+  }
+  return boards[i];
+}
 
 const scene = document.createElement('canvas'), sctx = scene.getContext('2d');
 const chan = document.createElement('canvas'), cctx = chan.getContext('2d');
@@ -372,21 +386,24 @@ resize();
 // ============================================================
 // Board rendering (one offscreen copy, mirrored everywhere else)
 // ============================================================
-function tile(c, x, y, s, hue, alpha, flash) {
-  const b = s * 0.18;
+function tile(c, x, y, s, hue, alpha, flash, light) {
+  const b = s * 0.18, l = light || 58;
   c.globalAlpha = alpha;
-  c.fillStyle = `hsl(${hue},95%,58%)`; c.fillRect(x, y, s, s);
-  c.fillStyle = `hsl(${hue},95%,80%)`;
+  c.fillStyle = `hsl(${hue},95%,${l}%)`; c.fillRect(x, y, s, s);
+  c.fillStyle = `hsl(${hue},95%,${Math.min(92, l + 24)}%)`;
   c.beginPath(); c.moveTo(x, y); c.lineTo(x + s, y); c.lineTo(x + s - b, y + b); c.lineTo(x + b, y + b); c.lineTo(x + b, y + s - b); c.lineTo(x, y + s); c.closePath(); c.fill();
-  c.fillStyle = `hsl(${hue},90%,30%)`;
+  c.fillStyle = `hsl(${hue},90%,${Math.max(18, l - 28)}%)`;
   c.beginPath(); c.moveTo(x + s, y + s); c.lineTo(x, y + s); c.lineTo(x + b, y + s - b); c.lineTo(x + s - b, y + s - b); c.lineTo(x + s - b, y + b); c.lineTo(x + s, y); c.closePath(); c.fill();
   c.fillStyle = `hsla(${hue},100%,92%,0.25)`; c.fillRect(x + b, y + b, (s - 2 * b) * 0.45, (s - 2 * b) * 0.45);
   if (flash > 0) { c.fillStyle = `rgba(255,255,255,${flash})`; c.fillRect(x, y, s, s); }
   c.globalAlpha = 1;
 }
 
-function renderBoard(now) {
-  const c = bctx, bw = board.width, bh = board.height;
+function renderBoards(now) {
+  for (let i = 0; i < fx.wedges; i++) renderBoard(now, boardFor(i).ctx, i);
+}
+function renderBoard(now, c, prism) {
+  const bw = c.canvas.width, bh = c.canvas.height;
   c.clearRect(0, 0, bw, bh);
   c.fillStyle = 'rgba(4,0,18,0.32)'; c.fillRect(0, 0, bw, bh);
   c.strokeStyle = 'rgba(255,255,255,0.07)'; c.lineWidth = 1;
@@ -400,11 +417,12 @@ function renderBoard(now) {
     const t = G.grid[y][x]; if (!t) continue;
     let flash = 0;
     if (clearingRows && clearingRows.includes(y)) flash = 0.45 + 0.45 * Math.sin(now / 28);
-    tile(c, x * CELL, y * CELL, CELL, (HUES[t] + fx.hue) % 360, 1, flash);
+    const [hue, light] = pieceColour(t, prism);
+    tile(c, x * CELL, y * CELL, CELL, hue, 1, flash, light);
   }
   const p = G.piece;
   if (p) {
-    const hue = (HUES[p.type] + fx.hue) % 360;
+    const [hue, light] = pieceColour(p.type, prism);
     const gy = ghostY();
     c.strokeStyle = `hsla(${hue},95%,75%,0.75)`; c.lineWidth = 2;
     for (let y = 0; y < p.m.length; y++) for (let x = 0; x < p.m.length; x++) {
@@ -413,7 +431,7 @@ function renderBoard(now) {
     }
     for (let y = 0; y < p.m.length; y++) for (let x = 0; x < p.m.length; x++) {
       if (!p.m[y][x] || p.y + y < 0) continue;
-      tile(c, (p.x + x) * CELL, (p.y + y) * CELL, CELL, hue, 1, 0);
+      tile(c, (p.x + x) * CELL, (p.y + y) * CELL, CELL, hue, 1, 0, light);
     }
   }
 }
@@ -479,7 +497,7 @@ function renderScene(now) {
         c.save();
         if (j % 2) { c.translate(k * bw, -(r0 + j * bh)); c.scale(k % 2 ? -1 : 1, -1); }
         else { c.translate(k * bw, -(r0 + (j + 1) * bh)); if (k % 2) c.scale(-1, 1); }
-        c.drawImage(board, -bw / 2, 0, bw, bh);
+        c.drawImage(boardFor(i).cv, -bw / 2, 0, bw, bh);
         c.restore();
       }
     }
@@ -492,7 +510,7 @@ function renderScene(now) {
     c.save(); c.rotate(m * a + a / 2); clipWedge(c, a / 2);
     if (m % 2) c.scale(-1, 1);
     c.rotate(phi);
-    c.drawImage(board, -bw * si / 2, -r0, bw * si, r0);
+    c.drawImage(boardFor(Math.ceil(m / 2) % n).cv, -bw * si / 2, -r0, bw * si, r0);
     c.restore();
   }
   // mirror seams: a thin bright line along every wedge boundary, plus a ring round the inner mandala
@@ -542,7 +560,7 @@ function renderScene(now) {
     c.shadowColor = `hsla(${(h0 + 180) % 360},100%,80%,0.9)`; c.shadowBlur = fc * 1.2;
     c.fillStyle = 'rgba(2,0,12,0.78)'; c.fillRect(fx0, fy0, fbw, fbh);
     c.shadowBlur = 0;
-    c.drawImage(board, fx0, fy0, fbw, fbh);
+    c.drawImage(boardFor(0).cv, fx0, fy0, fbw, fbh);
     c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = Math.max(2, fc * 0.12);
     c.strokeRect(fx0, fy0, fbw, fbh);
     c.restore();
@@ -583,8 +601,9 @@ function post() {
 // ============================================================
 // HUD (drawn crisp, after post-processing)
 // ============================================================
-function miniPiece(c, type, x, y, cs, hue) {
+function miniPiece(c, type, x, y, cs) {
   if (!type) return;
+  const [hue, light] = pieceColour(type, 0);
   const m = SHAPES[type];
   let minX = 9, maxX = -1, minY = 9, maxY = -1;
   for (let yy = 0; yy < m.length; yy++) for (let xx = 0; xx < m.length; xx++) if (m[yy][xx]) {
@@ -592,7 +611,7 @@ function miniPiece(c, type, x, y, cs, hue) {
   }
   const w = (maxX - minX + 1) * cs, h = (maxY - minY + 1) * cs;
   for (let yy = minY; yy <= maxY; yy++) for (let xx = minX; xx <= maxX; xx++) if (m[yy][xx]) {
-    tile(c, x - w / 2 + (xx - minX) * cs, y - h / 2 + (yy - minY) * cs, cs, hue, 1, 0);
+    tile(c, x - w / 2 + (xx - minX) * cs, y - h / 2 + (yy - minY) * cs, cs, hue, 1, 0, light);
   }
 }
 function drawHUD() {
@@ -619,8 +638,8 @@ function drawHUD() {
     label('SCORE', x, y, 17 * s); value(score, x, y + 26 * s, 34 * s); y += 120 * s * vs;
     label('LINES', x, y, 17 * s); value(lines, x, y + 26 * s, 34 * s); y += 120 * s * vs;
     label('LEVEL', x, y, 17 * s); value(level, x, y + 26 * s, 34 * s); y += 120 * s * vs;
-    label('NEXT', x, y, 17 * s); miniPiece(c, G.queue[0], px + L.sideW / 2, y + 75 * s * vs, 22 * s * vs, (HUES[G.queue[0]] + fx.hue) % 360); y += 150 * s * vs;
-    label('HOLD', x, y, 17 * s); miniPiece(c, G.hold, px + L.sideW / 2, y + 75 * s * vs, 22 * s * vs, G.hold ? (HUES[G.hold] + fx.hue) % 360 : 0);
+    label('NEXT', x, y, 17 * s); miniPiece(c, G.queue[0], px + L.sideW / 2, y + 75 * s * vs, 22 * s * vs); y += 150 * s * vs;
+    label('HOLD', x, y, 17 * s); miniPiece(c, G.hold, px + L.sideW / 2, y + 75 * s * vs, 22 * s * vs);
   } else {
     c.fillStyle = 'rgba(8,4,24,0.6)'; c.fillRect(0, 0, W, L.topH);
     const xs = [0.17, 0.41, 0.58, 0.76, 0.91].map(f => f * W);
@@ -628,9 +647,9 @@ function drawHUD() {
     c.textAlign = 'center';
     items.forEach(([l, vv], i) => { label(l, xs[i], 10 * s, 12 * s); value(vv, xs[i], 30 * s, 23 * s); });
     label('NEXT', xs[3], 10 * s, 12 * s);
-    miniPiece(c, G.queue[0], xs[3], 48 * s, 10 * s, (HUES[G.queue[0]] + fx.hue) % 360);
+    miniPiece(c, G.queue[0], xs[3], 48 * s, 10 * s);
     label('HOLD', xs[4], 10 * s, 12 * s);
-    miniPiece(c, G.hold, xs[4], 48 * s, 10 * s, G.hold ? (HUES[G.hold] + fx.hue) % 360 : 0);
+    miniPiece(c, G.hold, xs[4], 48 * s, 10 * s);
   }
   if (!fx.prism && prismAuto === false) {
     c.textAlign = hudMode === 'side' ? 'left' : 'center'; c.font = `${Math.round(11 * s)}px "Courier New", monospace`;
@@ -651,7 +670,7 @@ function frame(now) {
   if (hidden) return;
   tick(dt);
   fx.update(dt);
-  renderBoard(now);
+  renderBoards(now);
   renderScene(now);
   post();
   drawHUD();
