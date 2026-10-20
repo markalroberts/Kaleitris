@@ -253,7 +253,7 @@ float noise(vec2 p){
 }
 float fbm(vec2 p){
   float v=0.0, a=0.5; mat2 m=mat2(0.8,0.6,-0.6,0.8);
-  for(int i=0;i<4;i++){ v+=a*noise(p); p=m*p*2.0+vec2(1.7,9.2); a*=0.5; }
+  for(int i=0;i<3;i++){ v+=a*noise(p); p=m*p*2.0+vec2(1.7,9.2); a*=0.5; }
   return v;
 }
 vec3 pal(float t){ return 0.5+0.5*cos(6.28318*(t+vec3(0.0,0.33,0.67))); }
@@ -264,13 +264,13 @@ vec3 hsv(float h, float sat, float v){
 void main(){
   vec2 uv=(gl_FragCoord.xy-0.5*u_res)/min(u_res.x,u_res.y);
   float r=length(uv);
-  float ang=atan(uv.y,uv.x)+u_angle*0.5+0.45*sin(r*2.0-u_time*0.05);
-  vec2 p=vec2(cos(ang),sin(ang))*r*1.35+u_seed;
+  float ang=atan(uv.y,uv.x)+u_angle*0.3+0.12*sin(r*2.0-u_time*0.05);
+  vec2 p=vec2(cos(ang),sin(ang))*r*1.05+u_seed;
   float t=u_time*0.04;
   p.y-=t*0.5;                                                   // slow lava-lamp rise
   vec2 q=vec2(fbm(p+vec2(0.0,t)), fbm(p+vec2(5.2,1.3)-t*0.7));
-  vec2 w=vec2(fbm(p+2.2*q+vec2(1.7,9.2)+0.15*t), fbm(p+2.2*q+vec2(8.3,2.8)-0.126*t));
-  float f=fbm(p+(1.8+1.2*u_pulse)*w);
+  vec2 w=vec2(fbm(p+0.9*q+vec2(1.7,9.2)+0.15*t), fbm(p+0.9*q+vec2(8.3,2.8)-0.126*t));
+  float f=1.7*fbm(p+(0.8+1.0*u_pulse)*w);
   float blobA=smoothstep(0.0,0.09,f);                           // sharper blob layers
   float blobB=smoothstep(0.13,0.22,f);
   float blobC=smoothstep(0.25,0.32,f);
@@ -529,7 +529,7 @@ function renderScene(now) {
   {
     const R = (r0 + bh) * fx.pulse;
     const v = c.createRadialGradient(sx, sy, R * 0.92, sx, sy, R * 1.9);
-    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.35, 'rgba(0,0,10,0.35)'); v.addColorStop(1, 'rgba(0,0,10,0.8)');
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.4, 'rgba(0,0,10,0.2)'); v.addColorStop(1, 'rgba(0,0,10,0.55)');
     c.fillStyle = v; c.fillRect(0, 0, W, H);
   }
 
