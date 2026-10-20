@@ -23,5 +23,5 @@ Visual toggles: `[` and `]` change the number of prisms (3 to 12), `R` stops or 
 `F` toggles the prism / bloom pass, `H` toggles the glowing marker on one of the mirrored boards,
 `B` toggles an upright non-rotating copy of the board in the centre.
 
-On phones and narrow windows the upright focus board is on by default so the game stays playable.
+The upright focus board is off by default everywhere; the glowing frame on one of the rotating boards is the guide.
 If a device cannot hold a smooth frame rate the prism pass switches itself off; press `F` to force it back on.

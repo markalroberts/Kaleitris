@@ -356,7 +356,6 @@ function resize() {
   hudMode = (cw >= 820 && cw > ch) ? 'side' : 'top';
   const s = dpr * (hudMode === 'side' ? Math.max(0.7, Math.min(1, cw / 1400)) : Math.max(0.85, Math.min(1.4, cw / 420)));
   const padH = isTouch ? 84 * dpr : 0;
-  if (focusAuto) fx.focus = isTouch || cw < 900 || ch > cw;
   const sideW = hudMode === 'side' ? Math.round(230 * s) : 0;
   const topH = hudMode === 'top' ? Math.round(74 * s) : 0;
   document.getElementById('pad').style.right = `${Math.round(sideW / dpr)}px`;
