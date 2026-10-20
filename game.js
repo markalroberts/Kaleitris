@@ -270,8 +270,8 @@ void main(){
   float blobA=smoothstep(0.0,0.14,f);                           // soft blob layers
   float blobB=smoothstep(0.14,0.28,f);
   vec3 bg=pal(u_hue+0.06*q.x+r*0.15)*0.5;
-  vec3 ca=pal(u_hue+0.33+0.25*w.y);
-  vec3 cb=pal(u_hue+0.66+0.25*w.x)*1.15;
+  vec3 ca=pal(u_hue+0.33+0.45*w.y+0.3*q.x);
+  vec3 cb=pal(u_hue+0.66+0.45*w.x+0.3*q.y)*1.15;
   vec3 col=mix(bg,ca,blobA); col=mix(col,cb,blobB);
   float rim=1.0-smoothstep(0.0,0.045,abs(f-0.14));             // glowing blob edges
   col+=0.35*rim*pal(u_hue+0.5+0.2*w.x);
