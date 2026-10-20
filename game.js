@@ -234,6 +234,103 @@ const chan = document.createElement('canvas'), cctx = chan.getContext('2d');
 const small1 = document.createElement('canvas'), s1ctx = small1.getContext('2d');
 const small2 = document.createElement('canvas'), s2ctx = small2.getContext('2d');
 
+// ------------------------------------------------------------
+// Oil-projector background: domain-warped noise in a fragment shader,
+// rendered small and stretched over the scene. Falls back to a conic gradient.
+// ------------------------------------------------------------
+const oil = (() => {
+  const cv = document.createElement('canvas');
+  let gl = null, prog = null, loc = null, ok = false;
+  const VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+  const FS = `
+precision mediump float;
+uniform vec2 u_res; uniform float u_time, u_hue, u_angle, u_pulse, u_seed;
+vec2 hash(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return -1.0+2.0*fract(sin(p)*43758.5453123); }
+float noise(vec2 p){
+  vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(dot(hash(i),f),dot(hash(i+vec2(1.,0.)),f-vec2(1.,0.)),u.x),
+             mix(dot(hash(i+vec2(0.,1.)),f-vec2(0.,1.)),dot(hash(i+vec2(1.,1.)),f-vec2(1.,1.)),u.x),u.y);
+}
+float fbm(vec2 p){
+  float v=0.0, a=0.5; mat2 m=mat2(0.8,0.6,-0.6,0.8);
+  for(int i=0;i<4;i++){ v+=a*noise(p); p=m*p*2.0+vec2(1.7,9.2); a*=0.5; }
+  return v;
+}
+vec3 pal(float t){ return 0.5+0.5*cos(6.28318*(t+vec3(0.0,0.33,0.67))); }
+void main(){
+  vec2 uv=(gl_FragCoord.xy-0.5*u_res)/min(u_res.x,u_res.y);
+  float r=length(uv);
+  float ang=atan(uv.y,uv.x)+u_angle*0.5+0.45*sin(r*2.0-u_time*0.05);
+  vec2 p=vec2(cos(ang),sin(ang))*r*1.35+u_seed;
+  float t=u_time*0.04;
+  p.y-=t*0.5;                                                   // slow lava-lamp rise
+  vec2 q=vec2(fbm(p+vec2(0.0,t)), fbm(p+vec2(5.2,1.3)-t*0.7));
+  vec2 w=vec2(fbm(p+2.2*q+vec2(1.7,9.2)+0.15*t), fbm(p+2.2*q+vec2(8.3,2.8)-0.126*t));
+  float f=fbm(p+(1.8+1.2*u_pulse)*w);
+  float blobA=smoothstep(0.0,0.14,f);                           // soft blob layers
+  float blobB=smoothstep(0.14,0.28,f);
+  vec3 bg=pal(u_hue+0.06*q.x+r*0.15)*0.5;
+  vec3 ca=pal(u_hue+0.33+0.25*w.y);
+  vec3 cb=pal(u_hue+0.66+0.25*w.x)*1.15;
+  vec3 col=mix(bg,ca,blobA); col=mix(col,cb,blobB);
+  float rim=1.0-smoothstep(0.0,0.045,abs(f-0.14));             // glowing blob edges
+  col+=0.35*rim*pal(u_hue+0.5+0.2*w.x);
+  float film=sin((f*4.0+length(w)*3.0-t*1.5)*3.14159);         // faint oil sheen
+  col=mix(col, pal(f*2.0+u_hue+0.5), 0.12*film);
+  col+=0.25*u_pulse*pal(u_hue+r);
+  col*=1.0-0.5*smoothstep(0.35,1.1,r);                          // vignette
+  gl_FragColor=vec4(col,1.0);
+}`;
+  function compile(type, src) {
+    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  function setup() {
+    ok = false;
+    gl = cv.getContext('webgl', { antialias: false, depth: false, alpha: false, preserveDrawingBuffer: false })
+      || cv.getContext('experimental-webgl');
+    if (gl) {
+      prog = gl.createProgram();
+      gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+      gl.useProgram(prog);
+      const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const a = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+      loc = {};
+      for (const u of ['u_res', 'u_time', 'u_hue', 'u_angle', 'u_pulse', 'u_seed']) loc[u] = gl.getUniformLocation(prog, u);
+      gl.viewport(0, 0, cv.width, cv.height);
+      ok = true;
+    }
+  }
+  try { setup(); } catch (e) { ok = false; }
+  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); ok = false; });
+  cv.addEventListener('webglcontextrestored', () => { try { setup(); } catch (e) { ok = false; } });
+  const seed = Math.random() * 100;
+  return {
+    get ok() { return ok; },
+    canvas: cv,
+    resize(w, h) {
+      const k = Math.min(1, 420 / w);
+      cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+      if (ok) gl.viewport(0, 0, cv.width, cv.height);
+    },
+    draw(time, hue, angle, pulse) {
+      if (!ok) return;
+      gl.uniform2f(loc.u_res, cv.width, cv.height);
+      gl.uniform1f(loc.u_time, time);
+      gl.uniform1f(loc.u_hue, hue / 360);
+      gl.uniform1f(loc.u_angle, angle);
+      gl.uniform1f(loc.u_pulse, pulse);
+      gl.uniform1f(loc.u_seed, seed);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+  };
+})();
+
 let W = 0, H = 0, hudMode = 'side', layout = null, focusAuto = true;
 
 function resize() {
@@ -246,6 +343,7 @@ function resize() {
   scene.width = chan.width = W; scene.height = chan.height = H;
   small1.width = Math.max(1, W >> 2); small1.height = Math.max(1, H >> 2);
   small2.width = Math.max(1, W >> 4); small2.height = Math.max(1, H >> 4);
+  oil.resize(W, H);
   hudMode = (cw >= 820 && cw > ch) ? 'side' : 'top';
   const s = dpr * (hudMode === 'side' ? Math.max(0.7, Math.min(1, cw / 1400)) : Math.max(0.85, Math.min(1.4, cw / 420)));
   const padH = isTouch ? 84 * dpr : 0;
@@ -329,17 +427,22 @@ function renderScene(now) {
   c.globalCompositeOperation = 'source-over';
   c.globalAlpha = 1;
 
-  // psychedelic background: rotating conic rainbow + vignette
+  // psychedelic background: swirling oil-projector shader, conic gradient as fallback
   const h0 = fx.hue;
-  if (c.createConicGradient) {
-    const g = c.createConicGradient(-fx.angle * 0.7, L.cx, L.cy);
-    for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsl(${(h0 + i * 60) % 360},90%,46%)`);
-    c.fillStyle = g;
-  } else c.fillStyle = `hsl(${h0},80%,25%)`;
-  c.fillRect(0, 0, W, H);
-  const v = c.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, Math.hypot(W, H) * 0.6);
-  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
-  c.fillStyle = v; c.fillRect(0, 0, W, H);
+  if (oil.ok) {
+    oil.draw(now / 1000, h0, fx.angle, Math.max(0, fx.pulse - 1) * 8 + fx.chroma * 10);
+    c.drawImage(oil.canvas, 0, 0, W, H);
+  } else {
+    if (c.createConicGradient) {
+      const g = c.createConicGradient(-fx.angle * 0.7, L.cx, L.cy);
+      for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsl(${(h0 + i * 60) % 360},90%,46%)`);
+      c.fillStyle = g;
+    } else c.fillStyle = `hsl(${h0},80%,25%)`;
+    c.fillRect(0, 0, W, H);
+    const v = c.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, Math.hypot(W, H) * 0.6);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
+    c.fillStyle = v; c.fillRect(0, 0, W, H);
+  }
 
   const n = fx.wedges, a = Math.PI / n;
   const r0c = (COLS / 2) / Math.tan(a) + 0.6;
