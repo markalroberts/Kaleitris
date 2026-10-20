@@ -279,7 +279,7 @@ void main(){
   vec2 uv=(gl_FragCoord.xy-0.5*u_res)/min(u_res.x,u_res.y);
   float r=length(uv);
   float ang=atan(uv.y,uv.x)+u_angle*0.3+0.12*sin(r*2.0-u_time*0.05);
-  vec2 p=vec2(cos(ang),sin(ang))*r*1.05+u_seed;
+  vec2 p=vec2(cos(ang),sin(ang))*r*2.2+u_seed;
   float t=u_time*0.04;
   p.y-=t*0.5;                                                   // slow lava-lamp rise
   vec2 q=vec2(fbm(p+vec2(0.0,t)), fbm(p+vec2(5.2,1.3)-t*0.7));
@@ -453,11 +453,11 @@ function renderScene(now) {
   c.globalCompositeOperation = 'source-over';
   c.globalAlpha = 1;
 
-  // psychedelic background: swirling oil-projector shader, conic gradient as fallback
+  // psychedelic background: the lava shader goes through the prisms below; conic gradient as fallback
   const h0 = fx.hue;
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
   if (oil.ok) {
     oil.draw(now / 1000, h0, fx.angle, Math.max(0, fx.pulse - 1) * 8 + fx.chroma * 10);
-    c.drawImage(oil.canvas, 0, 0, W, H);
   } else {
     if (c.createConicGradient) {
       const g = c.createConicGradient(-fx.angle * 0.7, L.cx, L.cy);
@@ -485,6 +485,18 @@ function renderScene(now) {
   c.translate(sx, sy); c.rotate(fx.angle); c.scale(fx.pulse, fx.pulse);
   const rMax = Math.hypot(Math.max(L.cx, W - L.cx), Math.max(L.cy, H - L.cy)) / fx.pulse;
   const rows = Math.max(1, Math.ceil((rMax - r0) / bh));
+
+  // lava background seen through the same mirrors: one slice of it per prism, mirrored and rocking
+  if (oil.ok) {
+    const k = rMax / (Math.min(W, H) / 2) * 1.05;
+    for (let i = 0; i < n; i++) {
+      c.save(); c.rotate(i * 2 * a); clipWedge(c, a);
+      if (i % 2) c.scale(-1, 1);
+      c.rotate(phi);
+      c.drawImage(oil.canvas, -W * k / 2, -H * k / 2 - rMax * 0.45, W * k, H * k);   // centre the lava on the prism, not the origin
+      c.restore();
+    }
+  }
 
   for (let i = 0; i < n; i++) {
     c.save(); c.rotate(i * 2 * a); clipWedge(c, a);
