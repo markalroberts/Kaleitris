@@ -483,8 +483,8 @@ function renderScene(now) {
   // mirror seams: a thin bright line along every wedge boundary, plus a ring round the inner mandala
   c.save();
   c.lineCap = 'round';
-  c.shadowColor = `hsla(${(h0 + 180) % 360},100%,85%,0.9)`; c.shadowBlur = cellS * 0.6;
-  c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = Math.max(1, cellS * 0.1);
+  c.shadowColor = `hsla(${(h0 + 180) % 360},100%,85%,0.5)`; c.shadowBlur = cellS * 0.4;
+  c.strokeStyle = 'rgba(255,255,255,0.14)'; c.lineWidth = Math.max(1, cellS * 0.06);
   c.beginPath();
   for (let m = 0; m < 2 * n; m++) {
     const ang = m * a - Math.PI / 2, len = (m % 2) ? rMax : r0;
@@ -493,7 +493,7 @@ function renderScene(now) {
   c.moveTo(r0, 0); c.arc(0, 0, r0, 0, Math.PI * 2);
   c.stroke();
   c.shadowBlur = 0;
-  c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = Math.max(0.5, cellS * 0.03);
+  c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = Math.max(0.5, cellS * 0.02);
   c.stroke();
   c.restore();
   c.fillStyle = `hsla(${(h0 + 180) % 360},100%,85%,0.9)`;
