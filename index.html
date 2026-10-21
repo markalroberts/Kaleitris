@@ -22,6 +22,21 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Kaleitris</title>
+<!-- Google Analytics 4. Set GA_ID to your measurement ID (looks like G-XXXXXXXXXX); nothing loads while it is empty. -->
+<script>
+  (function () {
+    var GA_ID = 'G-2BJ9TMCSY6';
+    if (!GA_ID || location.hostname === 'localhost' || location.protocol === 'file:') return;
+    var s = document.createElement('script'); s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', GA_ID, { anonymize_ip: true });
+  })();
+</script>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Courier New", Courier, monospace;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
