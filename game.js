@@ -653,12 +653,12 @@ function drawHUD() {
     label('NEXT', x, y, 17 * s); miniPiece(c, G.queue[0], px + L.sideW / 2, y + 75 * s * vs, 22 * s * vs); y += 150 * s * vs;
     label('HOLD', x, y, 17 * s); miniPiece(c, G.hold, px + L.sideW / 2, y + 75 * s * vs, 22 * s * vs);
     // game name, bottom right of the panel, cycling through the title's colours
-    const ns = Math.round(14 * s), nx = W - 24 * s, ny = H - L.padH - 22 * s - ns;
+    const ns = Math.round(21 * s), nx = W - 24 * s, ny = H - L.padH - 22 * s - ns;
     c.font = `bold ${ns}px "Courier New", Courier, monospace`; c.textAlign = 'right';
     const nw = c.measureText('KALEITRIS').width;
     const ng = c.createLinearGradient(nx - nw, 0, nx, 0);
-    for (let i = 0; i <= 5; i++) ng.addColorStop(i / 5, `hsl(${(fx.hue + i * 60) % 360},90%,66%)`);
-    c.fillStyle = ng; c.globalAlpha = 0.9; c.fillText('KALEITRIS', nx, ny); c.globalAlpha = 1;
+    for (let i = 0; i <= 5; i++) ng.addColorStop(i / 5, `hsl(${(fx.hue + i * 60) % 360},95%,70%)`);
+    c.shadowColor = glow; c.shadowBlur = 14 * s; c.fillStyle = ng; c.fillText('KALEITRIS', nx, ny); c.shadowBlur = 0;
   } else {
     c.fillStyle = 'rgba(8,4,24,0.6)'; c.fillRect(0, 0, W, L.topH);
     const xs = [0.17, 0.41, 0.58, 0.76, 0.91].map(f => f * W);
@@ -673,7 +673,7 @@ function drawHUD() {
   if (!fx.prism && prismAuto === false) {
     c.textAlign = hudMode === 'side' ? 'left' : 'center'; c.font = `${Math.round(11 * s)}px "Courier New", monospace`;
     c.fillStyle = 'rgba(255,255,255,0.5)';
-    c.fillText('PRISM OFF (F)', hudMode === 'side' ? W - L.sideW + 24 * s : W / 2, H - L.padH - (hudMode === 'side' ? 56 : 22) * s);
+    c.fillText('PRISM OFF (F)', hudMode === 'side' ? W - L.sideW + 24 * s : W / 2, H - L.padH - (hudMode === 'side' ? 64 : 22) * s);
   }
   try { c.letterSpacing = '0px'; } catch (e) { /* ignore */ }
 }
